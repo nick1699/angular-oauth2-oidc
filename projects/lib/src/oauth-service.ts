@@ -251,6 +251,31 @@ export class OAuthService extends AuthConfig implements OnDestroy {
   }
 
   /**
+   * Method checks the log-in.
+   * The check depends on the response_type.
+   */
+  public isLoggedIn(): boolean {
+    switch (this.responseType) {
+      case 'code':
+      case 'token id_token':
+      case 'id_token token':
+      case 'code id_token token':
+        return this.hasValidAccessToken() && this.hasValidIdToken();
+      case 'token':
+      case 'token code':
+      case 'code token':
+        return this.hasValidAccessToken();
+      case 'id_token':
+      case 'code id_token':
+      case 'id_token code':
+        return this.hasValidIdToken();
+      default:
+        console.error('Unsupported response Type.');
+        return false;
+    }
+  }
+
+  /**
    * Convenience method that first calls `loadDiscoveryDocument(...)` and
    * directly chains using the `then(...)` part of the promise to call
    * the `tryLogin(...)` method.
@@ -278,18 +303,14 @@ export class OAuthService extends AuthConfig implements OnDestroy {
     if (!options) {
       options = { state: '' };
     }
-    return this.loadDiscoveryDocumentAndTryLogin(options).then(_ => {
-      if (!this.hasValidIdToken() || !this.hasValidAccessToken()) {
-        if (this.responseType === 'code') {
-          this.initCodeFlow();
-        } else {
-          this.initImplicitFlow();
+    return this.loadDiscoveryDocumentAndTryLogin(options)
+      .then(_ => this.isLoggedIn())
+      .then(isLoggedIn => {
+        if (!isLoggedIn) {
+          this.initLoginFlow();
         }
-        return false;
-      } else {
-        return true;
-      }
-    });
+        return isLoggedIn;
+      });
   }
 
   protected debug(...args): void {
